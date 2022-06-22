@@ -1,0 +1,219 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
+    />
+    <title>Happy Father's Day!</title>
+    <script src="https://d3js.org/d3.v4.js"></script>
+    <script
+      type="text/javascript"
+      src="https://d3js.org/queue.v1.min.js"
+    ></script>
+    <script
+      type="text/javascript"
+      src="https://d3js.org/topojson.v1.min.js"
+    ></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/brands.min.css"
+    />
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"
+      integrity="sha512-WFN04846sdKMIP5LKNphMaWzU7YpMyCU245etK3g/2ARYbPK9Ub18eG+ljU96qKRCWh+quCY7yefSmlkQw1ANQ=="
+      crossorigin="anonymous"
+    ></script>
+    <link href="main.css" rel="stylesheet" />
+  </head>
+  <body>
+    <article>
+      <!-- Header -->
+      <hgroup>
+        <h1>Happy Father's Day!</h1>
+        <h2>
+          For you, a digital memory capsule of the last decade.
+        </h2>
+        <div class="byline">
+          With love, Sam (June 19, 2022)
+        </div>
+      </hgroup>
+
+      <!-- Intro -->
+      <section>
+        <p></p>
+      </section>
+    </article>
+
+    <div class="years"></div>
+
+    <div id="figure">
+      <div class="metadata">
+        <div class="date"></div>
+        <div class="description"></div>
+      </div>
+      <div class="sideimage"></div>
+    </div>
+
+    <script type="text/javascript">
+      var width = window.innerWidth;
+      var height = 500;
+
+      var svg = d3
+        .select("#figure")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+      queue().defer(d3.csv, "images.csv").await(onFinish);
+
+      function cleanData(data) {
+        function formatNumber(number) {
+          return parseInt(number.substring(1).replaceAll(",", ""), 10);
+        }
+
+        var output = [];
+
+        for (var object of data) {
+          output.push({
+            id: object["id"],
+            date: object["date"],
+            description: object["description"],
+            year: parseInt(object["year"], 10)
+          });
+        }
+        return output;
+      }
+
+      function onFinish(error, data) {
+        var originalData = cleanData(data);
+        var currentData = cleanData(data);
+        var years = Object.keys(_.groupBy(originalData, "year"));
+        years = years.map(function (year) {
+          return parseInt(year, 10);
+        });
+
+        years.sort();
+
+        var yearNode = d3.select(".years");
+        yearNode
+          .selectAll("div")
+          .data(years)
+          .enter()
+          .append("div")
+          .html(function (year) {
+            return year;
+          })
+          .on("click", function (year) {
+            updateYear(year);
+          });
+        var scale = d3.scaleLinear().domain([0, 100]).range([0, 100]);
+
+        function updateYear(year) {
+          var cirleR = 50;
+          currentData = originalData.filter((datum) => datum.year === year);
+          var simulation = d3
+            .forceSimulation(currentData)
+            .force("charge", d3.forceManyBody().strength(5))
+            .force(
+              "x",
+              d3.forceX().x(function (d) {
+                return width * 0.5;
+              })
+            )
+            .force(
+              "y",
+              d3.forceY().y(function (d) {
+                return height * 0.5;
+              })
+            )
+            .force(
+              "collision",
+              d3.forceCollide().radius(function (d) {
+                return scale(cirleR);
+              })
+            )
+            .on("tick", tick);
+
+          var defs = svg.append("defs");
+
+          var year = 2011;
+          var num = 0;
+          for (var i = 0; i < 110; i++) {
+            var concat = year.toString() + num.toString();
+            var id = "image" + concat;
+            defs
+              .append("pattern")
+              .attr("id", id)
+              .attr("x", "0%")
+              .attr("y", "0%")
+              .attr("height", "100%")
+              .attr("width", "100%")
+              .attr("viewBox", "0 0 100 100")
+              .append("image")
+              .attr("x", "0%")
+              .attr("y", "0%")
+              .attr("width", "150")
+              .attr("xlink:href", "img/" + concat + ".jpg");
+            if (num == 9) {
+              num = 0;
+              year++;
+            } else {
+              num++;
+            }
+          }
+
+          function tick() {
+            var currentCircles = svg
+              .selectAll("circle")
+              .data(currentData, function (d) {
+                return d.id;
+              });
+
+            var currentText = svg
+              .selectAll("text")
+              .data(currentData, function (d) {
+                return d.id;
+              });
+
+            var circles = currentCircles
+              .enter()
+              .append("circle")
+              .attr("fill", function (d) {
+                var string = "url(";
+                string += '"#image';
+                string += d.id;
+                string += '")';
+                return string;
+              })
+              .merge(currentCircles)
+              .attr("r", function (d) {
+                return scale(cirleR);
+              })
+              .attr("cx", function (d) {
+                return d.x;
+              })
+              .attr("cy", function (d) {
+                return d.y;
+              })
+              .on("mouseover", function (d) {
+                var description = d3.select(".description");
+                var date = d3.select(".date");
+                var sideimage = d3.select(".sideimage");
+
+                date.html(d.date + ", " + d.year);
+                description.html(d.description);
+                sideimage.html(
+                  '<img style="height:350px;" src="img/' + d.id + '.jpg">'
+                );
+              });
+
+            currentCircles.exit().remove();
+          }
+        }
+
+        updateYear(2011);
+      }
+    </script>
+  </body>
+</html>
