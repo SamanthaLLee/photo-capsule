@@ -1,4 +1,3 @@
 # photo-capsule
-Created with CodeSandbox.
+A Father's Day gift created with CodeSandbox.
 
-A Father's Day gift.
